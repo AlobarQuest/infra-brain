@@ -25,7 +25,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://infrabrain:${POSTGRES_PASSWORD}@postgres:5432/infrabrain
+      DATABASE_URL: ${DATABASE_URL}
       APP_NAME: infra-brain
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
