@@ -42,7 +42,8 @@ LOG_LEVEL=INFO
 
 Notes:
 - Do not set `DATABASE_URL` in Coolify for the normal inline-compose install.
-- The API service builds `DATABASE_URL` as `postgresql+asyncpg://infrabrain:${POSTGRES_PASSWORD}@infrabrain-db:5432/infrabrain`.
+- The API service builds `DATABASE_URL` from `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`.
+- Password URL-encoding is handled at container startup, so symbols in the password are safe.
 - `SERVICE_URL_API` and `SERVICE_FQDN_API` are not required by this app.
 
 ---

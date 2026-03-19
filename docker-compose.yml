@@ -23,7 +23,11 @@ services:
       infrabrain-db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://infrabrain:${POSTGRES_PASSWORD}@infrabrain-db:5432/infrabrain
+      POSTGRES_HOST: infrabrain-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: infrabrain
+      POSTGRES_USER: infrabrain
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       APP_NAME: infra-brain
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
