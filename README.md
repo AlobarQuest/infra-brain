@@ -41,6 +41,20 @@ curl http://localhost:8000/api/health
 # → {"status": "ok", "app": "infra-brain", "db": "connected"}
 ```
 
+## Coolify deployment
+
+Deploy this repo in Coolify as a `Docker Compose` application using `docker-compose.yml`.
+
+Required Coolify environment variables:
+
+```env
+POSTGRES_PASSWORD=<strong password for the inline postgres service>
+APP_ENV=production
+LOG_LEVEL=INFO
+```
+
+The API service derives `DATABASE_URL` internally from `POSTGRES_PASSWORD`. If you change the Postgres password after first boot, you must either update the role password inside Postgres or recreate the Postgres volume.
+
 ## MCP connectivity test
 
 ```bash
@@ -65,4 +79,4 @@ Add to `~/.mcp.json`:
 
 - **FastAPI** 0.115.6 + **FastMCP** 2.3.4
 - **PostgreSQL** 16 + **SQLAlchemy** 2.0.36 (async) + **Alembic** 1.13.3
-- **Docker** → **GHCR** → **Coolify**
+- **Docker Compose** → **Coolify**
