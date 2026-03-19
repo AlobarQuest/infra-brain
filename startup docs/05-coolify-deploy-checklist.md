@@ -25,7 +25,7 @@ Important:
 3. Use the repository root as the build context.
 
 This app contains:
-- `postgres`: PostgreSQL 16
+- `infrabrain-db`: PostgreSQL 16
 - `api`: FastAPI + FastMCP application
 
 ---
@@ -42,7 +42,7 @@ LOG_LEVEL=INFO
 
 Notes:
 - Do not set `DATABASE_URL` in Coolify for the normal inline-compose install.
-- The API service builds `DATABASE_URL` as `postgresql+asyncpg://infrabrain:${POSTGRES_PASSWORD}@postgres:5432/infrabrain`.
+- The API service builds `DATABASE_URL` as `postgresql+asyncpg://infrabrain:${POSTGRES_PASSWORD}@infrabrain-db:5432/infrabrain`.
 - `SERVICE_URL_API` and `SERVICE_FQDN_API` are not required by this app.
 
 ---
