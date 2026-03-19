@@ -5,6 +5,7 @@
 **Repo:** `github.com/alobarquest/infra-brain`
 **Domain:** `infra-brain.devonwatkins.com`
 **MCP endpoint:** `https://infra-brain.devonwatkins.com/mcp`
+**Also accepted:** `https://infra-brain.devonwatkins.com/mcp/`
 
 ---
 
@@ -61,7 +62,8 @@ Postgres gives us typed schemas with real constraints.
 
 **Why FastMCP instead of raw MCP SDK?**
 FastMCP mounts cleanly as an ASGI app on FastAPI. The health endpoint, REST API, and MCP
-tools all run on the same port. Simpler operations, consistent with the portfolio direction.
+tools all run on the same port. The live deployment uses streamable HTTP with JSON
+responses in stateless mode so it behaves cleanly behind Coolify's proxy.
 
 **Why is seed data separate from migrations?**
 Alembic manages schema (structure). Seed data is content — it changes independently and

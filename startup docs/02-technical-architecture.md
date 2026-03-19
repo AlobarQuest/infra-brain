@@ -308,13 +308,17 @@ The FastAPI app exposes one health endpoint and mounts FastMCP at `/mcp`.
 
 ```
 GET  /api/health   → health check (Coolify probe target)
-ANY  /mcp          → FastMCP SSE endpoint
+ANY  /mcp          → FastMCP streamable HTTP endpoint
+ANY  /mcp/         → Same FastMCP endpoint
 ```
 
 Notes:
 - `/api/health` is the only dedicated REST endpoint today.
-- `/mcp` expects MCP/SSE semantics. Plain browser or `curl` requests without
-  `Accept: text/event-stream` return a `Not Acceptable` error from FastMCP.
+- The live deployment uses FastMCP streamable HTTP with `json_response=True` and
+  `stateless_http=True`.
+- MCP clients may use either `/mcp` or `/mcp/`.
+- The recommended low-level connectivity test is a POST `initialize` request with
+  `Accept: application/json, text/event-stream` and `Content-Type: application/json`.
 - There are no separate `/api/versions`, `/api/rules`, or `/api/lessons` REST endpoints in the current app.
 
 ---

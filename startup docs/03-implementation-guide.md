@@ -143,7 +143,7 @@ from fastapi import FastAPI
 from fastmcp import FastMCP
 
 app = FastAPI(title="Infra Brain")
-mcp = FastMCP("infra-brain")
+mcp = FastMCP("infra-brain", json_response=True, stateless_http=True)
 
 # Register all tools from tools/ modules
 # Mount MCP on FastAPI: app.mount("/mcp", mcp.get_asgi_app())
@@ -156,7 +156,8 @@ async def health():
 
 Mount pattern: FastMCP's ASGI app mounts at `/mcp`. The FastAPI app serves `/api/*`.
 Local development is exposed at `localhost:8000` via compose port mapping, while the
-deployed container listens on port `80`.
+deployed container listens on port `80`. The live deployment accepts both `/mcp`
+and `/mcp/`.
 
 ### Step 1.10 — Seed script
 
@@ -205,13 +206,16 @@ curl http://localhost:8000/api/health
 # Local inspector
 npx @modelcontextprotocol/inspector http://localhost:8000/mcp
 
-# Remote SSE probe
-curl -i -N -H 'Accept: text/event-stream' \
-  https://infra-brain.devonwatkins.com/mcp
+# Remote initialize probe
+curl -i --max-time 20 \
+  https://infra-brain.devonwatkins.com/mcp/ \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}},"id":1}'
 ```
 
-Do not expect a plain `curl https://.../mcp` request to return JSON. FastMCP requires
-`Accept: text/event-stream`.
+Expected remote result: `HTTP 200` with `Content-Type: application/json` and a
+JSON-RPC initialize response.
 
 **Phase 1 complete when:**
 - [ ] `docker compose up` starts cleanly
@@ -269,13 +273,16 @@ In Coolify UI:
    - Trigger manual deploy
    - Check logs — look for `alembic upgrade head`, seed completion, and `Uvicorn running on http://0.0.0.0:80`
    - Hit `https://infra-brain.devonwatkins.com/api/health`
-   - Validate MCP with an SSE-capable client or `Accept: text/event-stream`
+   - Validate MCP with the POST `initialize` probe above or an MCP client
 
 ### Step 2.4 — Connect to Claude.ai
 
 In Claude.ai Settings → Connected Apps → Add MCP Server:
 - Name: `Infra Brain`
 - URL: `https://infra-brain.devonwatkins.com/mcp`
+
+The live server accepts both `/mcp` and `/mcp/`, so an existing connector URL does not
+need to change.
 
 Verify in a new conversation: ask "what version of sqlalchemy should I use?" —
 Claude should call `get_version("sqlalchemy")` and return the registered answer.
@@ -306,7 +313,7 @@ Current recommendation:
 - [ ] Coolify deploys from the GitHub App source cleanly
 - [ ] `https://infra-brain.devonwatkins.com/api/health` returns 200
 - [ ] Claude.ai can call `get_version("sqlalchemy")` via MCP
-- [ ] MCP endpoint responds to an SSE-capable client
+- [ ] MCP endpoint responds to a valid `initialize` request
 
 ---
 

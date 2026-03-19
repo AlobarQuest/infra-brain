@@ -81,8 +81,11 @@ If `alembic` fails with `InvalidPasswordError`, either:
 
 ```bash
 curl https://infra-brain.devonwatkins.com/api/health
-curl -i -N -H 'Accept: text/event-stream' \
-  https://infra-brain.devonwatkins.com/mcp
+curl -i --max-time 20 \
+  https://infra-brain.devonwatkins.com/mcp/ \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}},"id":1}'
 ```
 
 Expected health response:
@@ -92,9 +95,9 @@ Expected health response:
 ```
 
 Expected MCP behavior:
-- An SSE-capable request reaches the FastMCP endpoint.
-- A plain request without `Accept: text/event-stream` may return
-  `Not Acceptable: Client must accept text/event-stream`, which still confirms the endpoint is live.
+- The initialize probe returns `HTTP 200`.
+- The response has `Content-Type: application/json`.
+- The JSON body contains the server initialize result.
 
 ---
 

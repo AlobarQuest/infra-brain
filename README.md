@@ -3,6 +3,7 @@
 Infrastructure knowledge registry for Devon's app portfolio. Exposed as an MCP server.
 
 **MCP endpoint:** `https://infra-brain.devonwatkins.com/mcp`
+**Also accepted:** `https://infra-brain.devonwatkins.com/mcp/`
 **Health:** `https://infra-brain.devonwatkins.com/api/health`
 
 ## What it stores
@@ -63,13 +64,21 @@ The deployed API container listens on port `80`, while local development still m
 # Local
 npx @modelcontextprotocol/inspector http://localhost:8000/mcp
 
-# Remote SSE probe
-curl -i -N -H 'Accept: text/event-stream' \
-  https://infra-brain.devonwatkins.com/mcp
+# Remote initialize probe
+curl -i --max-time 20 \
+  https://infra-brain.devonwatkins.com/mcp/ \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"0.1"}},"id":1}'
 ```
 
-A plain `curl https://infra-brain.devonwatkins.com/mcp` request is expected to return
-`Not Acceptable: Client must accept text/event-stream`.
+Expected remote result:
+- `HTTP 200`
+- `Content-Type: application/json`
+- JSON-RPC initialize response body
+
+The live server uses FastMCP streamable HTTP with `json_response=True` and
+`stateless_http=True`, which avoids streamed POST response issues behind the proxy.
 
 ## Connect to Claude Code
 
@@ -84,6 +93,10 @@ Add to `~/.mcp.json`:
   }
 }
 ```
+
+No connector URL change is required if you already configured
+`https://infra-brain.devonwatkins.com/mcp`. The server now accepts both `/mcp`
+and `/mcp/`.
 
 ## Stack
 
