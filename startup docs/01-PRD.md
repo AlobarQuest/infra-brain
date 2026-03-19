@@ -2,8 +2,8 @@
 
 **Project:** `infra-brain`
 **Owner:** Devon Watkins
-**Status:** Pre-build
-**Flavor:** B (Standard — FastAPI + Postgres + GHCR + Coolify)
+**Status:** Live
+**Flavor:** B (Standard — FastAPI + Postgres + Docker Compose + Coolify)
 **Domain:** `infra-brain.devonwatkins.com`
 
 ---
@@ -91,7 +91,7 @@ permanently stored and retrievable by future agents working on any app.
   Execution belongs in a future Infra MCP audit/generate layer.
 - **Not a human-facing web UI.** A table editor UI is a low-priority future enhancement.
   The primary interface is MCP tools.
-- **Not a secrets manager.** Secrets stay in BWS. Infra Brain stores patterns, not values.
+- **Not a secrets manager.** Secrets stay in Coolify env vars or an external secret manager. Infra Brain stores patterns, not values.
 
 ---
 
@@ -112,5 +112,5 @@ permanently stored and retrievable by future agents working on any app.
 
 - Must follow Flavor B infrastructure standards (the same standards it documents).
 - Zero incremental hosting cost — runs on existing Hetzner VPS.
-- All secrets via BWS. No secrets in git.
+- All secrets via Coolify env vars or an external secret manager. No secrets in git.
 - Must be reachable as a connected MCP from Claude.ai and from Claude Code `.mcp.json`.

@@ -1,7 +1,7 @@
 # Infra Brain — Project Specification
 
-**Status:** Ready to build
-**Flavor:** B (FastAPI + PostgreSQL 16 + GHCR + Coolify)
+**Status:** Live
+**Flavor:** B (FastAPI + PostgreSQL 16 + Docker Compose + Coolify)
 **Repo:** `github.com/alobarquest/infra-brain`
 **Domain:** `infra-brain.devonwatkins.com`
 **MCP endpoint:** `https://infra-brain.devonwatkins.com/mcp`
@@ -47,6 +47,8 @@ Read in order when handing to a coding AI:
 4. Follow the exact version pins in `04-seed-data.json` — those are the canonical versions
 5. The seed script must be idempotent (`--skip-existing` by default)
 6. All MCP tools return dicts with an `error` key on failure — never unhandled exceptions
+7. For deployment, follow the current live path in `05-coolify-deploy-checklist.md`:
+   Coolify `Private Repository (GitHub App)` + `Docker Compose` build pack
 
 ---
 

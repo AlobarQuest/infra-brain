@@ -43,7 +43,7 @@ curl http://localhost:8000/api/health
 
 ## Coolify deployment
 
-Deploy this repo in Coolify as a `Docker Compose` application using `docker-compose.yml`.
+Deploy this repo in Coolify as a `Private Repository (GitHub App)` application using the `Docker Compose` build pack with compose location `docker-compose.yml`.
 
 Required Coolify environment variables:
 
@@ -60,8 +60,16 @@ The deployed API container listens on port `80`, while local development still m
 ## MCP connectivity test
 
 ```bash
+# Local
 npx @modelcontextprotocol/inspector http://localhost:8000/mcp
+
+# Remote SSE probe
+curl -i -N -H 'Accept: text/event-stream' \
+  https://infra-brain.devonwatkins.com/mcp
 ```
+
+A plain `curl https://infra-brain.devonwatkins.com/mcp` request is expected to return
+`Not Acceptable: Client must accept text/event-stream`.
 
 ## Connect to Claude Code
 

@@ -18,11 +18,12 @@ Important:
 
 ---
 
-## Step 2 — Create a New Docker Compose Application
+## Step 2 — Create a New Git-Based Application
 
-1. In Coolify, create a new `Docker Compose` application from this repo.
-2. Point Coolify at `docker-compose.yml`.
-3. Use the repository root as the build context.
+1. In Coolify, create a new `Private Repository (GitHub App)` application from this repo.
+2. Select the `Docker Compose` build pack.
+3. Set compose location to `docker-compose.yml`.
+4. Use the repository root as the build context.
 
 This app contains:
 - `infrabrain-db`: PostgreSQL 16
@@ -80,7 +81,8 @@ If `alembic` fails with `InvalidPasswordError`, either:
 
 ```bash
 curl https://infra-brain.devonwatkins.com/api/health
-curl https://infra-brain.devonwatkins.com/mcp
+curl -i -N -H 'Accept: text/event-stream' \
+  https://infra-brain.devonwatkins.com/mcp
 ```
 
 Expected health response:
@@ -88,6 +90,11 @@ Expected health response:
 ```json
 {"status":"ok","app":"infra-brain","db":"connected"}
 ```
+
+Expected MCP behavior:
+- An SSE-capable request reaches the FastMCP endpoint.
+- A plain request without `Accept: text/event-stream` may return
+  `Not Acceptable: Client must accept text/event-stream`, which still confirms the endpoint is live.
 
 ---
 

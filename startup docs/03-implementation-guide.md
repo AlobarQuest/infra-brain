@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     model_config = ConfigDict(env_file=".env")
 ```
 
+Local development uses `localhost:8000`. The deployed container overrides `PORT=80`
+through `docker-compose.yml`.
+
 ### Step 1.4 — Database engine
 
 `src/db/engine.py` — async SQLAlchemy engine:
@@ -152,7 +155,8 @@ async def health():
 ```
 
 Mount pattern: FastMCP's ASGI app mounts at `/mcp`. The FastAPI app serves `/api/*`.
-Both run on port 8000 via uvicorn.
+Local development is exposed at `localhost:8000` via compose port mapping, while the
+deployed container listens on port `80`.
 
 ### Step 1.10 — Seed script
 
@@ -198,10 +202,16 @@ curl http://localhost:8000/api/health
 
 **MCP connectivity test:**
 ```bash
-# Install MCP inspector
+# Local inspector
 npx @modelcontextprotocol/inspector http://localhost:8000/mcp
-# Verify all tools appear and get_version("sqlalchemy") returns correct data
+
+# Remote SSE probe
+curl -i -N -H 'Accept: text/event-stream' \
+  https://infra-brain.devonwatkins.com/mcp
 ```
+
+Do not expect a plain `curl https://.../mcp` request to return JSON. FastMCP requires
+`Accept: text/event-stream`.
 
 **Phase 1 complete when:**
 - [ ] `docker compose up` starts cleanly
@@ -220,49 +230,46 @@ npx @modelcontextprotocol/inspector http://localhost:8000/mcp
 ### Step 2.1 — GitHub repo
 
 Create `github.com/alobarquest/infra-brain`. Push Phase 1 code.
-Add GitHub repo secrets: `COOLIFY_WEBHOOK_URL`, `COOLIFY_API_TOKEN`.
 
-### Step 2.2 — GitHub Actions
+### Step 2.2 — Coolify source path
 
-Write `.github/workflows/deploy.yml` exactly as shown in `02-technical-architecture.md`.
-Push to main, verify image appears in GHCR at `ghcr.io/alobarquest/infra-brain:latest`.
+Current production deployment uses Coolify directly from GitHub:
+
+- Source type: `Private Repository (GitHub App)`
+- Build pack: `Docker Compose`
+- Compose location: `docker-compose.yml`
+
+The checked-in `.github/workflows/deploy.yml` is now optional/legacy. It is not required
+for the live deployment path.
 
 ### Step 2.3 — Coolify setup
 
 In Coolify UI:
 
-1. **Create PostgreSQL database resource**
-   - Name: `infra-brain-db`
-   - Version: PostgreSQL 16
-   - Database name: `infrabrain`
-   - Username: `infrabrain`
-   - Generate strong password, note it for BWS
+1. **Create application resource**
+   - Type: `Private Repository (GitHub App)`
+   - Repository: `github.com/alobarquest/infra-brain`
+   - Build pack: `Docker Compose`
+   - Compose location: `docker-compose.yml`
 
-2. **Add database credentials to BWS**
-   - Secret: `INFRA_BRAIN_DATABASE_URL`
-   - Value: `postgresql+asyncpg://infrabrain:PASSWORD@COOLIFY_PG_HOST:5432/infrabrain`
-   - (Get the internal Coolify host from the database resource details)
-
-3. **Create application resource**
-   - Type: Docker Image
-   - Image: `ghcr.io/alobarquest/infra-brain:latest`
-   - Configure GHCR credentials in Coolify (Settings → Registries)
-   - Port: 8000
-   - Domain: `infra-brain.devonwatkins.com`
-   - Health check: `http://127.0.0.1:8000/api/health`
-
-4. **Set environment variables** (sourced from BWS):
+2. **Set environment variables**:
    ```
-   DATABASE_URL=postgresql+asyncpg://infrabrain:PASSWORD@host:5432/infrabrain
-   APP_NAME=infra-brain
+   POSTGRES_PASSWORD=<strong password>
    APP_ENV=production
    LOG_LEVEL=INFO
    ```
 
-5. **Deploy and verify**
+3. **Configure the public service**
+   - Service: `api`
+   - Container port: `80`
+   - Domain: `https://infra-brain.devonwatkins.com`
+   - Health check path: `/api/health`
+
+4. **Deploy and verify**
    - Trigger manual deploy
-   - Check logs — look for "alembic upgrade head" success and seed completion
+   - Check logs — look for `alembic upgrade head`, seed completion, and `Uvicorn running on http://0.0.0.0:80`
    - Hit `https://infra-brain.devonwatkins.com/api/health`
+   - Validate MCP with an SSE-capable client or `Accept: text/event-stream`
 
 ### Step 2.4 — Connect to Claude.ai
 
@@ -288,19 +295,18 @@ Add to `~/.mcp.json` (global) or project-level `.mcp.json`:
 
 ### Step 2.6 — Backup
 
-Enable Coolify's scheduled Postgres backup on the `infra-brain-db` resource:
-- Target: Hetzner Object Storage
-- Bucket: `devon-backups`
-- Prefix: `postgres/infra-brain/`
-- Schedule: nightly 2 AM
-- Credentials: shared `HETZNER_S3_KEY` / `HETZNER_S3_SECRET` from BWS
+The current live deployment uses inline Postgres inside the compose stack, so there is
+no separate Coolify database resource to attach scheduled DB backups to.
+
+Current recommendation:
+- use server-level backups for the Docker volume, or
+- add a future `pg_dump` automation once backup requirements are finalized
 
 **Phase 2 complete when:**
-- [ ] GitHub Actions builds and pushes image on every push to main
-- [ ] Coolify auto-deploys on push
+- [ ] Coolify deploys from the GitHub App source cleanly
 - [ ] `https://infra-brain.devonwatkins.com/api/health` returns 200
 - [ ] Claude.ai can call `get_version("sqlalchemy")` via MCP
-- [ ] Backup scheduled and verified
+- [ ] MCP endpoint responds to an SSE-capable client
 
 ---
 

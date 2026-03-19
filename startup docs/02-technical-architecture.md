@@ -32,7 +32,7 @@ infra-brain/
 │       └── 0001_initial_schema.py
 ├── scripts/
 │   ├── seed.py                  # Load initial data from seed/data.json
-│   └── backup_postgres.sh       # Nightly backup to Hetzner Object Storage
+│   └── start.sh                 # Build runtime DATABASE_URL, run migrations/seed, start uvicorn
 ├── seed/
 │   └── data.json                # Initial version pins, rules, combos, lessons
 ├── tests/
@@ -47,7 +47,7 @@ infra-brain/
 ├── .env.example
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml
+│       └── deploy.yml          # Optional legacy GHCR/webhook workflow
 └── README.md
 ```
 
@@ -302,41 +302,49 @@ Used by Coolify health checks and MCP client connectivity tests.
 
 ---
 
-## API Endpoints (FastAPI — for internal use)
+## HTTP Surface
 
-Beyond the MCP tools, the FastAPI app exposes:
+The FastAPI app exposes one health endpoint and mounts FastMCP at `/mcp`.
 
 ```
-GET  /api/health              → health check (Coolify probe target)
-GET  /api/versions            → list all versions (JSON)
-GET  /api/versions/{package}  → get one version
-GET  /api/rules               → list all rules
-GET  /api/lessons/search      → search lessons (?q=query)
-POST /api/lessons             → add lesson (internal use, not public)
+GET  /api/health   → health check (Coolify probe target)
+ANY  /mcp          → FastMCP SSE endpoint
 ```
 
-These are not the primary interface — the MCP tools are. These exist for debugging,
-scripting, and future admin UI if needed.
+Notes:
+- `/api/health` is the only dedicated REST endpoint today.
+- `/mcp` expects MCP/SSE semantics. Plain browser or `curl` requests without
+  `Accept: text/event-stream` return a `Not Acceptable` error from FastMCP.
+- There are no separate `/api/versions`, `/api/rules`, or `/api/lessons` REST endpoints in the current app.
 
 ---
 
 ## Configuration (Environment Variables)
 
-All populated from BWS via Coolify.
+Two layers of configuration exist in the current project:
 
 ```
-# Required
+# App settings consumed by src/config.py
 DATABASE_URL=postgresql+asyncpg://infrabrain:PASSWORD@localhost:5432/infrabrain
 APP_NAME=infra-brain
-APP_ENV=production
-
-# Optional
+APP_ENV=development
 LOG_LEVEL=INFO
 PORT=8000
-ALLOWED_HOSTS=infra-brain.devonwatkins.com
+ALLOWED_HOSTS=localhost
+
+# Inline compose deployment inputs consumed by scripts/start.sh
+POSTGRES_HOST=infrabrain-db
+POSTGRES_PORT=5432
+POSTGRES_DB=infrabrain
+POSTGRES_USER=infrabrain
+POSTGRES_PASSWORD=changeme
 ```
 
-`.env.example` ships with the repo. Actual values never in git.
+Notes:
+- `.env.example` ships with the repo for local development.
+- In the live Coolify deployment, only `POSTGRES_PASSWORD`, `APP_ENV`, and `LOG_LEVEL`
+  need to be set in the UI. The compose file supplies the other `POSTGRES_*` values.
+- `scripts/start.sh` URL-encodes the password before building `DATABASE_URL`.
 
 ---
 
@@ -345,9 +353,11 @@ ALLOWED_HOSTS=infra-brain.devonwatkins.com
 `alembic/versions/0001_initial_schema.py` creates all four tables in one migration.
 Seed data is loaded separately via `scripts/seed.py` which reads `seed/data.json`.
 
-Migration command (runs at container startup via CMD):
+Runtime startup sequence (implemented in `scripts/start.sh`):
 ```bash
-alembic upgrade head && uvicorn src.main:app --host 0.0.0.0 --port 8000
+alembic upgrade head
+python scripts/seed.py --skip-existing
+uvicorn src.main:app --host 0.0.0.0 --port "${PORT:-80}"
 ```
 
 ---
@@ -366,22 +376,23 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY . .
-EXPOSE 8000
-CMD ["sh", "-c", "alembic upgrade head && python scripts/seed.py --skip-existing && uvicorn src.main:app --host 0.0.0.0 --port 8000"]
+EXPOSE 80
+CMD ["sh", "/app/scripts/start.sh"]
 ```
 
-Note: `seed.py --skip-existing` means seeding is idempotent — safe to run on every
-startup without overwriting manual edits.
+Notes:
+- The deployed container listens on port `80`.
+- Local development maps host `8000` to container `80`.
+- `seed.py --skip-existing` means seeding is idempotent — safe to run on every startup
+  without overwriting manual edits.
 
 ---
 
 ## docker-compose.yml (production shape for local dev parity)
 
 ```yaml
-version: "3.9"
-
 services:
-  postgres:
+  infrabrain-db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -400,13 +411,32 @@ services:
     build: .
     restart: unless-stopped
     depends_on:
-      postgres:
+      infrabrain-db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://infrabrain:${POSTGRES_PASSWORD}@postgres:5432/infrabrain
+      POSTGRES_HOST: infrabrain-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: infrabrain
+      POSTGRES_USER: infrabrain
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PORT: 80
       APP_NAME: infra-brain
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - default
+      - coolify
+
+networks:
+  default:
+  coolify:
+    external: true
 
 volumes:
   postgres_data:
@@ -415,59 +445,24 @@ volumes:
 ## docker-compose.local.yml (local dev port exposure)
 
 ```yaml
-version: "3.9"
 services:
   api:
     ports:
-      - "8000:8000"
+      - "8000:80"
 ```
 
 Local start: `docker compose -f docker-compose.yml -f docker-compose.local.yml up --build`
 
 ---
 
-## GitHub Actions Workflow
+## GitHub Actions Workflow (legacy / optional)
 
-```yaml
-name: Build and Deploy
+The repo currently contains `.github/workflows/deploy.yml` which builds and pushes a GHCR
+image and then triggers a Coolify webhook. That workflow is no longer the primary production
+path. The live deployment uses:
 
-on:
-  push:
-    branches: [main]
+- Coolify `Private Repository (GitHub App)`
+- `Docker Compose` build pack
+- Compose location `docker-compose.yml`
 
-env:
-  IMAGE_NAME: ghcr.io/alobarquest/infra-brain
-
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/alobarquest/infra-brain:latest
-            ghcr.io/alobarquest/infra-brain:${{ github.sha }}
-
-      - name: Trigger Coolify redeploy
-        run: |
-          curl -X POST "${{ secrets.COOLIFY_WEBHOOK_URL }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_API_TOKEN }}"
-```
-
-GitHub repo secrets required: `COOLIFY_WEBHOOK_URL`, `COOLIFY_API_TOKEN`
+Keep the workflow only if you want an alternate image-based deploy path for future use.
