@@ -11,7 +11,9 @@ from src.tools.rules import register_rule_tools
 from src.tools.versions import register_version_tools
 
 
-mcp = FastMCP("infra-brain")
+# Force JSON responses for streamable HTTP requests to avoid proxy issues
+# with streamed POST responses.
+mcp = FastMCP("infra-brain", json_response=True)
 
 register_version_tools(mcp)
 register_rule_tools(mcp)
