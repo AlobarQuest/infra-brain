@@ -34,6 +34,38 @@ app = FastAPI(title="Infra Brain", lifespan=lifespan)
 
 app.mount("/mcp", mcp_asgi_app)
 
+MCP_HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
+
+
+class MCPPrefixAlias:
+    """Serve `/mcp` with the same mounted app behavior as `/mcp/`."""
+
+    def __init__(self, app, mount_path: str):
+        self.app = app
+        self.mount_path = mount_path.rstrip("/")
+
+    async def __call__(self, scope, receive, send) -> None:
+        alias_scope = dict(scope)
+        alias_scope["app_root_path"] = alias_scope.get(
+            "app_root_path", alias_scope.get("root_path", "")
+        )
+        alias_scope["root_path"] = f"{alias_scope.get('root_path', '')}{self.mount_path}"
+        alias_scope["path"] = f"{scope['path'].rstrip('/')}/"
+
+        raw_path = scope.get("raw_path")
+        if raw_path is not None:
+            alias_scope["raw_path"] = raw_path.rstrip(b"/") + b"/"
+
+        await self.app(alias_scope, receive, send)
+
+
+app.add_route(
+    "/mcp",
+    MCPPrefixAlias(mcp_asgi_app, "/mcp"),
+    methods=MCP_HTTP_METHODS,
+    include_in_schema=False,
+)
+
 
 @app.get("/api/health")
 async def health():
