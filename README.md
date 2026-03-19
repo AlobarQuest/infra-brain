@@ -55,6 +55,7 @@ LOG_LEVEL=INFO
 
 The API service builds `DATABASE_URL` at startup from `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`, with password URL-encoding applied automatically. If you change the Postgres password after first boot, you must either update the role password inside Postgres or recreate the Postgres volume.
 The inline Postgres service uses the unique hostname `infrabrain-db` to avoid collisions on Coolify's shared network.
+The deployed API container listens on port `80`, while local development still maps it to `localhost:8000`.
 
 ## MCP connectivity test
 

@@ -26,4 +26,4 @@ fi
 
 alembic upgrade head
 python scripts/seed.py --skip-existing
-exec uvicorn src.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+exec uvicorn src.main:app --host 0.0.0.0 --port "${PORT:-80}"

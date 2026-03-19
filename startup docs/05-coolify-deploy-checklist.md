@@ -53,11 +53,11 @@ Notes:
 Configure the public service as:
 
 - Service: `api`
-- Port: `8000`
-- Domain: `infra-brain.devonwatkins.com`
+- Port: `80`
+- Domain: `https://infra-brain.devonwatkins.com`
 - Health check path: `/api/health`
 
-The container also includes an internal healthcheck that probes `http://127.0.0.1:8000/api/health`.
+The container also includes an internal healthcheck that probes `http://127.0.0.1:80/api/health`.
 
 ---
 
@@ -68,7 +68,7 @@ Deploy and watch for this startup sequence:
 1. Postgres starts and becomes healthy.
 2. API runs `alembic upgrade head`.
 3. API runs `python scripts/seed.py --skip-existing`.
-4. API starts `uvicorn` on port `8000`.
+4. API starts `uvicorn` on port `80`.
 
 If `alembic` fails with `InvalidPasswordError`, either:
 - the Postgres volume was reused from an older install, or
